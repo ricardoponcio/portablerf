@@ -1,0 +1,41 @@
+#pragma once
+#include <Arduino.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_ST7735.h>
+#include <ELECHOUSE_CC1101_SRC_DRV.h>
+#include <RCSwitch.h>
+
+// --- Pinos ---
+#define TFT_CS     15
+#define TFT_RST    2
+#define TFT_DC     0
+
+#define CC1101_CS   5
+#define CC1101_GDO0 4
+
+#define BTN_BACK    A0
+#define BTN_UP      16
+#define BTN_DOWN    1
+#define BTN_OK      3
+
+// --- Cores Globais ---
+#define COLOR_BG      0x0000 
+#define COLOR_TITLE   0x07E0 
+#define COLOR_TEXT    0xFFFF
+#define COLOR_HIGHLIGHT 0xF800
+
+// --- Estado do Sistema ---
+enum SystemState {
+    STATE_MENU,
+    STATE_SCAN_RF,
+    STATE_ANALYZE_RF,
+    STATE_SOBRE
+};
+
+extern SystemState currentState;
+extern Adafruit_ST7735 tft;
+extern RCSwitch mySwitch;
+
+// --- Funções Auxiliares ---
+bool isBtnPressed(uint8_t btn);
+void waitForBtnRelease(uint8_t btn);
