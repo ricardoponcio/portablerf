@@ -22,6 +22,9 @@ static unsigned long codeDisplayTimer = 0;
 static bool showingCode = false;
 static bool needInitialDraw = true;
 
+// Último sinal capturado (para retransmissão imediata)
+static SavedSignal lastSniffed;
+
 static void drawBottomStatus(String text, uint16_t color) {
   tft.fillRect(0, 111, 128, 16, COLOR_BG);
   tft.drawRect(0, 0, 128, 128, COLOR_TITLE); 
@@ -37,7 +40,7 @@ static void drawAnalyzerUI() {
   tft.setCursor(10, 6);
   tft.setTextColor(COLOR_TITLE);
   tft.setTextSize(1);
-  tft.print("ANALISADOR RF ");
+  tft.print("SNIFFER RF ");
   tft.print(commonFreqs[currentFreqIdx], 0);
   tft.print("M");
 
@@ -49,6 +52,7 @@ static void drawAnalyzerUI() {
 
 void scan_rf_setup() {
     needInitialDraw = true;
+    lastSniffed.type = SIG_NONE;
     for (int i = 0; i < NUM_BARS; i++) {
         barHeights[i] = 0;
     }
@@ -62,7 +66,11 @@ void scan_rf_loop() {
 
     if (showingCode && (millis() - codeDisplayTimer > 3000)) {
         showingCode = false;
-        drawBottomStatus("Escaneando...", 0x07E0);
+        if (lastSniffed.type == SIG_DECODED) {
+            drawBottomStatus("OK=Reenviar", 0x07E0);
+        } else {
+            drawBottomStatus("Escaneando...", 0x07E0);
+        }
     }
 
     // O loop interno itera pelas barras (frequências)
@@ -88,6 +96,19 @@ void scan_rf_loop() {
             if (currentFreqIdx < 0) currentFreqIdx = NUM_FREQS - 1;
             scan_rf_setup(); // Reseta as barras e a tela
             return;          // Sai do loop para reiniciar
+        }
+
+        // Retransmite o último código capturado
+        if (isBtnPressed(BTN_OK) && lastSniffed.type == SIG_DECODED) {
+            waitForBtnRelease(BTN_OK);
+            drawBottomStatus("Enviando...", 0xF800);
+            
+            transmitSignal(lastSniffed);
+            
+            drawBottomStatus("Enviado!", 0x07E0);
+            showingCode = true;
+            codeDisplayTimer = millis();
+            return;
         }
 
         float freq = commonFreqs[currentFreqIdx] + (i * stepFreq);
@@ -140,6 +161,14 @@ void scan_rf_loop() {
                         drawBottomStatus(msg, 0xFFE0);
                         showingCode = true;
                         codeDisplayTimer = millis();
+                        
+                        // Salva para retransmissão imediata e na lista global
+                        lastSniffed.type = SIG_DECODED;
+                        lastSniffed.decodedValue = value;
+                        lastSniffed.bitlength = bitlen;
+                        lastSniffed.freq = freq;
+                        lastSniffed.rawCount = 0;
+                        saveSignalToHistory(lastSniffed);
                     }
                     mySwitch.resetAvailable(); 
                 }

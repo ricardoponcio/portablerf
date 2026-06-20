@@ -28,9 +28,38 @@
 enum SystemState {
     STATE_MENU,
     STATE_SCAN_RF,
+    STATE_RAW_RF,
     STATE_ANALYZE_RF,
+    STATE_TRANSMIT,
+    STATE_JAMMER,
     STATE_SOBRE
 };
+
+// --- Sinais Capturados (Lista Unificada) ---
+#define MAX_RAW_BUFFER 300
+#define MAX_HISTORY 5
+
+enum SignalType {
+    SIG_NONE,
+    SIG_DECODED,  // Sniffer RF (rc-switch decodificou)
+    SIG_RAW       // Sniffer RAW (pulsos brutos)
+};
+
+struct SavedSignal {
+    SignalType type;
+    float freq;
+    // Para sinais decodificados (Sniffer RF)
+    long decodedValue;
+    int bitlength;
+    // Para sinais brutos (Sniffer RAW)
+    uint16_t rawDurations[MAX_RAW_BUFFER];
+    int rawCount;
+};
+
+extern SavedSignal signalHistory[MAX_HISTORY];
+extern int historyCount;
+extern void saveSignalToHistory(SavedSignal &sig);
+extern void transmitSignal(SavedSignal &sig);
 
 extern SystemState currentState;
 extern Adafruit_ST7735 tft;

@@ -35,7 +35,7 @@ static void drawAnalyzerUI() {
   tft.setCursor(10, 6);
   tft.setTextColor(COLOR_TITLE);
   tft.setTextSize(1);
-  tft.print("ANALISADOR RF ");
+  tft.print("RADAR RF ");
   tft.print(commonFreqs[currentFreqIdx], 0);
   tft.print("M");
 

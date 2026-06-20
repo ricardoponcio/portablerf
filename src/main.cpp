@@ -1,7 +1,10 @@
 #include "globals.h"
 #include "menu.h"
 #include "scan_rf.h"
+#include "raw_rf.h"
 #include "analyze_rf.h"
+#include "transmit_rf.h"
+#include "jammer_rf.h"
 #include "sobre.h"
 
 SystemState lastState = STATE_MENU;
@@ -66,8 +69,14 @@ void loop() {
             menu_setup();
         } else if (currentState == STATE_SCAN_RF) {
             scan_rf_setup();
+        } else if (currentState == STATE_RAW_RF) {
+            raw_rf_setup();
         } else if (currentState == STATE_ANALYZE_RF) {
             analyze_rf_setup();
+        } else if (currentState == STATE_TRANSMIT) {
+            transmit_rf_setup();
+        } else if (currentState == STATE_JAMMER) {
+            jammer_rf_setup();
         } else if (currentState == STATE_SOBRE) {
             sobre_setup();
         }
@@ -79,8 +88,14 @@ void loop() {
         menu_loop();
     } else if (currentState == STATE_SCAN_RF) {
         scan_rf_loop();
+    } else if (currentState == STATE_RAW_RF) {
+        raw_rf_loop();
     } else if (currentState == STATE_ANALYZE_RF) {
         analyze_rf_loop();
+    } else if (currentState == STATE_TRANSMIT) {
+        transmit_rf_loop();
+    } else if (currentState == STATE_JAMMER) {
+        jammer_rf_loop();
     } else if (currentState == STATE_SOBRE) {
         sobre_loop();
     }
