@@ -6,6 +6,9 @@
 #include "transmit_rf.h"
 #include "jammer_rf.h"
 #include "sobre.h"
+#include "wifi_config.h"
+#include "network.h"
+#include <ESP8266WiFi.h>
 
 SystemState lastState = STATE_MENU;
 
@@ -20,14 +23,21 @@ void showSplashScreen() {
 }
 
 void setup() {
+    // Se o flag do AP estiver ativo, entra no modo AP dedicado IMEDIATAMENTE.
+    // Isso evita iniciar o TFT ou CC1101 antes do WiFi, garantindo que o radio
+    // do ESP8266 inicialize perfeitamente sem nenhuma colisao SPI/interrupt.
+    if (net_get_ap_mode_flag()) {
+        run_dedicated_ap_mode();
+    }
+
     // Inicializa botões
     pinMode(BTN_UP, INPUT_PULLDOWN_16);
     pinMode(BTN_DOWN, INPUT_PULLUP);
     pinMode(BTN_OK, INPUT_PULLUP);
-    // BTN_BACK (A0) não precisa de pinMode para analogRead
 
     // Inicializa Display
     tft.initR(INITR_144GREENTAB);
+
     showSplashScreen();
 
     // Inicia CC1101
@@ -54,7 +64,8 @@ void setup() {
         while(1) yield();
     }
 
-    mySwitch.enableReceive(digitalPinToInterrupt(CC1101_GDO0));
+    // Tenta conectar ao WiFi com credenciais salvas (nao bloqueia o boot se falhar)
+    net_init();
 
     // Força setup inicial
     menu_setup();
@@ -79,6 +90,8 @@ void loop() {
             jammer_rf_setup();
         } else if (currentState == STATE_SOBRE) {
             sobre_setup();
+        } else if (currentState == STATE_WIFI_CONFIG) {
+            wifi_config_setup();
         }
         lastState = currentState;
     }
@@ -98,5 +111,7 @@ void loop() {
         jammer_rf_loop();
     } else if (currentState == STATE_SOBRE) {
         sobre_loop();
+    } else if (currentState == STATE_WIFI_CONFIG) {
+        wifi_config_loop();
     }
 }

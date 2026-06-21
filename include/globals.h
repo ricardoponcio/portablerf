@@ -32,7 +32,8 @@ enum SystemState {
     STATE_ANALYZE_RF,
     STATE_TRANSMIT,
     STATE_JAMMER,
-    STATE_SOBRE
+    STATE_SOBRE,
+    STATE_WIFI_CONFIG
 };
 
 // --- Sinais Capturados (Lista Unificada) ---

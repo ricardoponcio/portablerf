@@ -56,6 +56,7 @@ void scan_rf_setup() {
     for (int i = 0; i < NUM_BARS; i++) {
         barHeights[i] = 0;
     }
+    mySwitch.enableReceive(digitalPinToInterrupt(CC1101_GDO0));
 }
 
 void scan_rf_loop() {
@@ -78,6 +79,7 @@ void scan_rf_loop() {
         // Verifica botões de navegação
         if (isBtnPressed(BTN_BACK)) {
             waitForBtnRelease(BTN_BACK);
+            mySwitch.disableReceive();
             currentState = STATE_MENU;
             return;
         }
@@ -145,6 +147,7 @@ void scan_rf_loop() {
             while (millis() - waitStart < 500) { 
                 if (isBtnPressed(BTN_BACK)) {
                     waitForBtnRelease(BTN_BACK);
+                    mySwitch.disableReceive();
                     currentState = STATE_MENU;
                     return;
                 }

@@ -160,7 +160,6 @@ static void restoreCCModeForOtherMenus() {
     ELECHOUSE_cc1101.setCCMode(1);
     ELECHOUSE_cc1101.setModulation(2);
     ELECHOUSE_cc1101.SetRx();
-    mySwitch.enableReceive(digitalPinToInterrupt(CC1101_GDO0));
 }
 
 void raw_rf_loop() {
