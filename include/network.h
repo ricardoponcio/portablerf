@@ -32,3 +32,4 @@ String net_get_ssid();
 String net_get_api_url();
 bool net_get_ap_mode_flag();
 void net_set_ap_mode_flag(bool active);
+void net_clear_credentials();

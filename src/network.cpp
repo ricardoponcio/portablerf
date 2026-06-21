@@ -93,6 +93,31 @@ void net_save_credentials(const char* ssid, const char* password, const char* ap
     _apiToken = apiToken;
 }
 
+void net_clear_credentials() {
+    EEPROM.begin(EEPROM_NET_SIZE);
+    
+    // Sobrescreve o magic number para indicar que não há credenciais salvas
+    uint32_t magic = 0;
+    EEPROM.put(EEPROM_NET_MAGIC_ADDR, magic);
+    
+    // Limpa os campos de string preenchendo com zeros
+    for (int i = EEPROM_NET_SSID_ADDR; i < EEPROM_NET_SIZE; i++) {
+        EEPROM.write(i, 0);
+    }
+    
+    EEPROM.commit();
+    EEPROM.end();
+    
+    _ssid     = "";
+    _password = "";
+    _apiUrl   = "";
+    _apiToken = "";
+    
+    // Desconecta o WiFi e limpa dados de conexão do flash do SDK
+    WiFi.disconnect(true);
+    _status = NET_DISCONNECTED;
+}
+
 void net_init() {
     // Apenas configura flags — não mexe no modo WiFi
     // O SDK cuida do modo automaticamente com WiFi.begin() ou WiFi.softAP()

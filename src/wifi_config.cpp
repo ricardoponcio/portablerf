@@ -3,9 +3,12 @@
 #include "network.h"
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <SPI.h>
 
 static bool redrawWifi = true;
 static bool apModeActive = false;
+static String apPassword = "";
+static bool isConfirmingClear = false;
 
 static ESP8266WebServer* configServer = nullptr;
 
@@ -42,76 +45,59 @@ static void startAPMode() {
     tft.fillScreen(COLOR_BG);
     tft.drawRect(0, 0, 128, 128, 0x07FF);
     
-    tft.setCursor(10, 20);
+    tft.setCursor(10, 25);
     tft.setTextColor(0xFFE0);
     tft.setTextSize(1);
-    tft.print("Ativando Modo AP...");
-    
-    tft.setCursor(10, 45);
+    tft.print("Iniciando AP...");
+    tft.setCursor(10, 50);
     tft.setTextColor(COLOR_TEXT);
-    tft.print("O aparelho precisa");
-    tft.setCursor(10, 57);
-    tft.print("reiniciar para");
-    tft.setCursor(10, 69);
-    tft.print("subir o radio AP.");
-    
-    tft.setCursor(10, 95);
-    tft.setTextColor(0x07E0);
-    tft.print("Reiniciando...");
+    tft.print("Aguarde...");
 
-    // Salva o flag do AP no EEPROM
-    net_set_ap_mode_flag(true);
-    
-    delay(2000);
-    ESP.restart();
-}
+    // 1) Silencia hardware e desliga interrupções
+    detachInterrupt(digitalPinToInterrupt(CC1101_GDO0));
+    mySwitch.disableReceive();
 
-void run_dedicated_ap_mode() {
-    // 1) Garante que o CC1101 esta deselecionado do barramento SPI para evitar qualquer colisao fisica
-    pinMode(CC1101_CS, OUTPUT);
+    // 2) Coloca CC1101 em sleep e deseleciona da linha de chip select
+    ELECHOUSE_cc1101.setSidle();
+    ELECHOUSE_cc1101.goSleep();
     digitalWrite(CC1101_CS, HIGH);
+    delay(100);
 
-    // 2) Inicializa botoes necessarios para o cancelamento manual
-    pinMode(BTN_UP, INPUT_PULLDOWN_16);
-    pinMode(BTN_DOWN, INPUT_PULLUP);
-    pinMode(BTN_OK, INPUT_PULLUP);
-
-    // 3) Inicializa WiFi em modo AP. Como e a PRIMEIRA coisa executada apos o boot (sem TFT e sem CC1101 iniciados em SPI ainda),
-    // o radio sobe 100% limpo e estavel!
+    // 3) Configura e inicia o rádio WiFi AP (sem desligar SPI)
     WiFi.persistent(false);
     WiFi.setAutoConnect(false);
     WiFi.setAutoReconnect(false);
     
     WiFi.mode(WIFI_AP);
     delay(100);
-
-    // Garante que o radio nao durma e use potencia maxima
+    
     WiFi.setSleepMode(WIFI_NONE_SLEEP);
     WiFi.setOutputPower(20.5);
+    
+    // Gera senha aleatória de 8 dígitos (padrão WPA2 exige mínimo de 8 caracteres)
+    randomSeed(micros());
+    apPassword = String(random(10000000, 99999999));
+    bool ok = WiFi.softAP("PortableRF_AP", apPassword.c_str());
 
-    // SSID com _AP para evitar cache do celular
-    bool ok = WiFi.softAP("PortableRF_AP");
-
-    // Aguarda o radio estabilizar (3 segundos como no teste diagnostico)
-    delay(3000);
-
-    // 4) Inicia o display TFT de forma segura, ja com o WiFi ativo
-    tft.initR(INITR_144GREENTAB);
-    tft.fillScreen(COLOR_BG);
-    tft.drawRect(0, 0, 128, 128, 0x07FF);
+    // 4) Aguarda 1 segundo para estabilização de transmissão
+    delay(1000);
 
     if (!ok) {
+        tft.fillScreen(COLOR_BG);
         tft.setCursor(10, 40);
         tft.setTextColor(0xF800);
-        tft.print("ERRO WIFI AP!");
-        tft.setCursor(10, 60);
-        tft.print("Reiniciando...");
-        net_set_ap_mode_flag(false);
+        tft.print("AP FALHOU!");
         delay(2000);
-        ESP.restart();
+        
+        // Se falhar, restaura o hardware para o menu
+        ELECHOUSE_cc1101.setSpiPin(14, 12, 13, CC1101_CS);
+        ELECHOUSE_cc1101.Init();
+        ELECHOUSE_cc1101.setCCMode(1);
+        ELECHOUSE_cc1101.setModulation(2);
+        return;
     }
 
-    // 5) Inicia servidor HTTP
+    // 5) Inicializa servidor HTTP
     configServer = new ESP8266WebServer(80);
 
     configServer->on("/", HTTP_GET, [&]() {
@@ -126,9 +112,6 @@ void run_dedicated_ap_mode() {
 
         net_save_credentials(ssid.c_str(), pass.c_str(), url.c_str(), token.c_str());
 
-        // Limpa flag de AP para o proximo boot ser normal
-        net_set_ap_mode_flag(false);
-
         configServer->send(200, "text/html",
             "<html><body style='background:#111;color:#0f0;font-family:monospace;padding:20px'>"
             "<h2>Salvo! Reiniciando...</h2></body></html>");
@@ -138,72 +121,7 @@ void run_dedicated_ap_mode() {
     });
 
     configServer->begin();
-
-    // 6) Desenha interface visual de configuracao
-    tft.fillScreen(COLOR_BG);
-    tft.drawRect(0, 0, 128, 128, 0x07FF);
-
-    tft.setCursor(15, 6);
-    tft.setTextColor(0x07FF);
-    tft.setTextSize(1);
-    tft.print("MODO CONFIG AP");
-    tft.drawLine(0, 18, 128, 18, 0x07FF);
-
-    tft.setCursor(5, 26);
-    tft.setTextColor(0x07E0);
-    tft.print("AP ativo!");
-
-    tft.setCursor(5, 42);
-    tft.setTextColor(COLOR_TEXT);
-    tft.print("Rede: PortableRF_AP");
-    
-    tft.setCursor(5, 56);
-    tft.print("IP: 192.168.4.1");
-
-    tft.setCursor(5, 75);
-    tft.setTextColor(0xFFE0);
-    tft.print("Acesse no celular");
-    tft.setCursor(5, 87);
-    tft.print("para configurar");
-
-    tft.drawLine(0, 110, 128, 110, 0x07FF);
-    tft.setCursor(5, 116);
-    tft.setTextColor(0xF800);
-    tft.print("BACK = Cancelar");
-
-    // 7) Loop dedicado e infinito do Modo AP
-    unsigned long lastFlash = 0;
-    bool ledOn = false;
-    
-    while (true) {
-        configServer->handleClient();
-        
-        // Pequena animacao pulsante para indicar que o aparelho esta rodando
-        if (millis() - lastFlash > 1000) {
-            lastFlash = millis();
-            ledOn = !ledOn;
-            tft.fillRect(115, 26, 6, 6, ledOn ? 0x07E0 : COLOR_BG);
-        }
-
-        // Verifica se o botao BACK foi pressionado para cancelar
-        if (isBtnPressed(BTN_BACK)) {
-            waitForBtnRelease(BTN_BACK);
-            
-            tft.fillScreen(COLOR_BG);
-            tft.setCursor(10, 50);
-            tft.setTextColor(0xFFE0);
-            tft.print("Cancelando AP...");
-            tft.setCursor(10, 70);
-            tft.print("Reiniciando...");
-            
-            // Limpa flag de AP
-            net_set_ap_mode_flag(false);
-            delay(1000);
-            ESP.restart();
-        }
-        
-        delay(20);
-    }
+    apModeActive = true;
 }
 
 static void stopAPMode() {
@@ -219,16 +137,42 @@ static void stopAPMode() {
     WiFi.mode(WIFI_STA);
     WiFi.softAPdisconnect(false);
 
-    // Restaura o CC1101 do sleep com reconfiguração completa dos pinos SPI
-    ELECHOUSE_cc1101.setSpiPin(14, 12, 13, CC1101_CS);
-    ELECHOUSE_cc1101.Init();
-    ELECHOUSE_cc1101.setCCMode(1);
-    ELECHOUSE_cc1101.setModulation(2);
-
     apModeActive = false;
 }
 
+static void drawConfirmClearUI() {
+    tft.fillScreen(COLOR_BG);
+    tft.drawRect(0, 0, 128, 128, 0xF800); // Borda vermelha de aviso
+
+    tft.setCursor(10, 6);
+    tft.setTextColor(0xF800);
+    tft.setTextSize(1);
+    tft.print("LIMPAR CONFIG");
+    tft.drawLine(0, 18, 128, 18, 0xF800);
+
+    tft.setTextColor(COLOR_TEXT);
+    tft.setCursor(5, 30);
+    tft.print("Deseja apagar as");
+    tft.setCursor(5, 42);
+    tft.print("credenciais WiFi");
+    tft.setCursor(5, 54);
+    tft.print("salvas no device?");
+
+    tft.setTextColor(0xFFE0);
+    tft.setCursor(5, 78);
+    tft.print("Confirma exclusao?");
+    
+    tft.drawLine(0, 110, 128, 110, 0xF800);
+    tft.setCursor(2, 116);
+    tft.setTextColor(0x07FF);
+    tft.print("OK=Confirm  BACK=Canc");
+}
+
 static void drawWifiUI() {
+    if (isConfirmingClear) {
+        drawConfirmClearUI();
+        return;
+    }
     tft.fillScreen(COLOR_BG);
     tft.drawRect(0, 0, 128, 128, 0x07FF);
 
@@ -256,7 +200,7 @@ static void drawWifiUI() {
         tft.setTextColor(COLOR_TEXT);
         tft.print("Rede: PortableRF_AP");
         tft.setCursor(5, 54);
-        tft.print("(aberta)");
+        tft.print("Senha: " + apPassword);
         tft.setCursor(5, 68);
         tft.print("-> 192.168.4.1");
     } else {
@@ -279,9 +223,13 @@ static void drawWifiUI() {
     if (apModeActive) {
         tft.print("BACK=Fechar AP");
     } else if (ns == NET_CONNECTED) {
-        tft.print("UP=Push OK=Pull");
+        tft.print("UP=Push OK=Pull DN=Rst");
     } else {
-        tft.print("UP=Config AP");
+        if (!net_get_ssid().isEmpty()) {
+            tft.print("UP=Config AP  DN=Reset");
+        } else {
+            tft.print("UP=Config AP");
+        }
     }
 }
 
@@ -289,12 +237,43 @@ void wifi_config_setup() {
     mySwitch.disableReceive();
     redrawWifi = true;
     apModeActive = false;
+    isConfirmingClear = false;
 }
 
 void wifi_config_loop() {
+    if (isConfirmingClear) {
+        if (redrawWifi) {
+            drawConfirmClearUI();
+            redrawWifi = false;
+        }
+
+        if (isBtnPressed(BTN_OK)) {
+            waitForBtnRelease(BTN_OK);
+            tft.fillScreen(COLOR_BG);
+            tft.drawRect(0, 0, 128, 128, 0xF800);
+            tft.setCursor(10, 45);
+            tft.setTextColor(0xF800);
+            tft.setTextSize(1);
+            tft.print("Limpando configs...");
+            tft.setCursor(10, 65);
+            tft.print("Reiniciando...");
+            
+            net_clear_credentials();
+            delay(1500);
+            ESP.restart();
+        }
+
+        if (isBtnPressed(BTN_BACK)) {
+            waitForBtnRelease(BTN_BACK);
+            isConfirmingClear = false;
+            redrawWifi = true;
+        }
+        return; // Ignora o resto se estiver confirmando clear
+    }
+
     if (apModeActive && configServer) {
         configServer->handleClient();
-        yield();
+        delay(20);
     }
 
     if (redrawWifi) {
@@ -302,15 +281,7 @@ void wifi_config_loop() {
         redrawWifi = false;
     }
 
-    if (isBtnPressed(BTN_BACK)) {
-        waitForBtnRelease(BTN_BACK);
-        if (apModeActive) {
-            stopAPMode();
-        }
-        currentState = STATE_MENU;
-        return;
-    }
-
+    // 1) Botões digitais checados a cada ciclo (sem rate-limit, pois digitalRead não interfere no WiFi)
     if (isBtnPressed(BTN_UP)) {
         waitForBtnRelease(BTN_UP);
 
@@ -327,15 +298,12 @@ void wifi_config_loop() {
             tft.setTextColor(ok ? 0x07E0 : 0xF800);
             tft.print(ok ? "Enviado!" : (historyCount == 0 ? "Lista vazia!" : "Falhou!"));
             delay(1000);
-        } else {
-            // Sem WiFi: UP liga/desliga o modo AP
-            if (apModeActive) {
-                stopAPMode();
-            } else {
-                startAPMode();
-            }
+        } else if (!apModeActive) {
+            // Sem WiFi e AP inativo: UP inicia o modo AP
+            startAPMode();
         }
         redrawWifi = true;
+        return;
     }
 
     if (isBtnPressed(BTN_OK)) {
@@ -353,9 +321,31 @@ void wifi_config_loop() {
             tft.setTextColor(ok ? 0x07E0 : 0xF800);
             tft.print(ok ? "Sync OK!" : "Falhou!");
             delay(1000);
-        } else if (apModeActive) {
-            stopAPMode();
         }
         redrawWifi = true;
+        return;
+    }
+
+    if (isBtnPressed(BTN_DOWN)) {
+        waitForBtnRelease(BTN_DOWN);
+        if (!apModeActive && !net_get_ssid().isEmpty()) {
+            isConfirmingClear = true;
+            redrawWifi = true;
+        }
+        return;
+    }
+
+    // 2) Botão analógico BACK checado apenas a cada 100ms para proteger o ADC do WiFi
+    static unsigned long lastButtonPoll = 0;
+    if (millis() - lastButtonPoll >= 100) {
+        lastButtonPoll = millis();
+        if (isBtnPressed(BTN_BACK)) {
+            waitForBtnRelease(BTN_BACK);
+            if (apModeActive) {
+                stopAPMode();
+            }
+            currentState = STATE_MENU;
+            return;
+        }
     }
 }

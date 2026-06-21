@@ -23,13 +23,6 @@ void showSplashScreen() {
 }
 
 void setup() {
-    // Se o flag do AP estiver ativo, entra no modo AP dedicado IMEDIATAMENTE.
-    // Isso evita iniciar o TFT ou CC1101 antes do WiFi, garantindo que o radio
-    // do ESP8266 inicialize perfeitamente sem nenhuma colisao SPI/interrupt.
-    if (net_get_ap_mode_flag()) {
-        run_dedicated_ap_mode();
-    }
-
     // Inicializa botões
     pinMode(BTN_UP, INPUT_PULLDOWN_16);
     pinMode(BTN_DOWN, INPUT_PULLUP);

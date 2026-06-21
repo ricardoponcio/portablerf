@@ -67,16 +67,35 @@ void transmitSignal(SavedSignal &sig) {
 
 bool isBtnPressed(uint8_t btn) {
     if (btn == BTN_BACK) {
-        return analogRead(BTN_BACK) > 800;
+        // Filtro robusto: tira 5 amostras e exige que TODAS sejam altas (>= 900).
+        // Se for ruído induzido pelo rádio, o sinal flutuará e pelo menos uma amostra será baixa.
+        // Se for um clique físico direto na linha de VCC, todas serão altas e estáveis.
+        for (int i = 0; i < 5; i++) {
+            if (analogRead(BTN_BACK) < 900) return false;
+            delayMicroseconds(50);
+        }
+        return true;
     } else if (btn == BTN_UP) {
+        if (digitalRead(BTN_UP) != HIGH) return false;
+        delay(1); // Ignora ruídos transientes rápidos
         return digitalRead(BTN_UP) == HIGH;
     } else {
+        if (digitalRead(btn) != LOW) return false;
+        delay(2); // Ignora transições rápidas de dados seriais da UART do SDK (115200 bps = ~8.6us/bit)
         return digitalRead(btn) == LOW;
     }
 }
 
 void waitForBtnRelease(uint8_t btn) {
-    while (isBtnPressed(btn)) {
+    if (btn == BTN_BACK) {
+        // Para o botão analógico BACK, não fazemos o loop de espera do ADC.
+        // Isso evita leituras extremamente rápidas que conflitam com o rádio WiFi e travam o ESP8266.
+        delay(150); // Delay simples de debounce
+        return;
+    }
+    unsigned long start = millis();
+    // Timeout de 2 segundos para evitar travamento em caso de ruído contínuo
+    while (isBtnPressed(btn) && (millis() - start < 2000)) {
         delay(10);
     }
     delay(50); // Debounce
