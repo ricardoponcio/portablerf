@@ -32,7 +32,11 @@ void transmitSignal(SavedSignal &sig) {
         mySwitch.disableReceive();
         mySwitch.enableTransmit(CC1101_GDO0);
         mySwitch.setRepeatTransmit(5);
+        
+        noInterrupts(); // Desliga interrupções durante o envio crítico
         mySwitch.send(sig.decodedValue, sig.bitlength);
+        interrupts();   // Reativa interrupções imediatamente
+        
         mySwitch.disableTransmit();
         
         ELECHOUSE_cc1101.SetRx();
@@ -49,6 +53,7 @@ void transmitSignal(SavedSignal &sig) {
         pinMode(CC1101_GDO0, OUTPUT);
         
         for (int rep = 0; rep < 5; rep++) {
+            noInterrupts(); // Desliga interrupções durante o envio bit-bang preciso
             int state = HIGH;
             for (int i = 0; i < sig.rawCount; i++) {
                 digitalWrite(CC1101_GDO0, state);
@@ -56,10 +61,14 @@ void transmitSignal(SavedSignal &sig) {
                 state = !state;
             }
             digitalWrite(CC1101_GDO0, LOW);
+            interrupts();   // Reativa interrupções para processamento de background/WiFi
+            
             delay(15);
             yield();
         }
         
+        // Restaura CCMode padrão (1) e escuta
+        ELECHOUSE_cc1101.setCCMode(1);
         ELECHOUSE_cc1101.SetRx();
         pinMode(CC1101_GDO0, INPUT);
     }
