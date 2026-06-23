@@ -66,6 +66,15 @@ extern SystemState currentState;
 extern Adafruit_ST7735 tft;
 extern RCSwitch mySwitch;
 
+// --- Estado WiFi ---
+extern bool wifiInitialized;
+extern bool wifiActive;
+
+// --- Estado CC1101 Interrupt ---
+extern volatile bool irqCapturing;
+extern volatile unsigned long irqLastMicros;
+extern volatile unsigned int irqCount;
+
 // --- Funções Auxiliares ---
 bool isBtnPressed(uint8_t btn);
 void waitForBtnRelease(uint8_t btn);

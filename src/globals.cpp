@@ -7,6 +7,15 @@ RCSwitch mySwitch = RCSwitch();
 SavedSignal signalHistory[MAX_HISTORY];
 int historyCount = 0;
 
+// WiFi state tracking
+bool wifiInitialized = false;
+bool wifiActive = false;
+
+// CC1101 interrupt state
+volatile bool irqCapturing = false;
+volatile unsigned long irqLastMicros = 0;
+volatile unsigned int irqCount = 0;
+
 void saveSignalToHistory(SavedSignal &sig) {
     // Evita duplicata consecutiva de decoded
     if (sig.type == SIG_DECODED && historyCount > 0 
@@ -108,4 +117,27 @@ void waitForBtnRelease(uint8_t btn) {
         delay(10);
     }
     delay(50); // Debounce
+}
+
+// --- Funções WiFi ---
+void wifi_disable() {
+    wifiActive = false;
+    wifiInitialized = false;
+    WiFi.disconnect(false);
+    delay(100);
+}
+
+void wifi_enable() {
+    wifiActive = true;
+    wifiInitialized = true;
+    WiFi.persistent(false);
+    WiFi.setAutoConnect(false);
+    WiFi.setAutoReconnect(true);
+    delay(100);
+}
+
+void wifi_init() {
+    wifi_disable();
+    wifi_enable();
+    delay(500);
 }
