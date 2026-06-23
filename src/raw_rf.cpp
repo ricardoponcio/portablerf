@@ -12,9 +12,6 @@ static bool isListening = false;
 static SavedSignal localCapture;
 
 volatile unsigned int irqDurations[MAX_RAW_BUFFER];
-volatile int irqCount = 0;
-volatile unsigned long irqLastMicros = 0;
-volatile bool irqCapturing = false;
 
 void ICACHE_RAM_ATTR rawInterruptHandler() {
     if (!irqCapturing) return;
@@ -160,7 +157,6 @@ static void restoreCCModeForOtherMenus() {
     ELECHOUSE_cc1101.setCCMode(1);
     ELECHOUSE_cc1101.setModulation(2);
     ELECHOUSE_cc1101.SetRx();
-    mySwitch.enableReceive(digitalPinToInterrupt(CC1101_GDO0));
 }
 
 void raw_rf_loop() {

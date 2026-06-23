@@ -1,8 +1,9 @@
 #include "globals.h"
 #include "menu.h"
+#include "network.h"
 
-static const int NUM_ITEMS = 6;
-static const char* menuItems[NUM_ITEMS] = {"Sniffer RF", "Sniffer RAW", "Radar RF", "Transmitir", "Jammer", "Sobre"};
+static const int NUM_ITEMS = 7;
+static const char* menuItems[NUM_ITEMS] = {"Sniffer RF", "Sniffer RAW", "Radar RF", "Transmitir", "Jammer", "WiFi Config", "Sobre"};
 static int selectedItem = 0;
 static bool redrawMenu = true;
 
@@ -16,7 +17,17 @@ static void drawMenu() {
     tft.setCursor(10, 10);
     tft.setTextColor(COLOR_TITLE);
     tft.setTextSize(1);
-    tft.print("PORTABLE RF - MENU");
+    tft.print("PortableRF");
+    
+    // Indicador de WiFi no canto direito do header
+    tft.setCursor(90, 10);
+    if (net_status() == NET_CONNECTED) {
+        tft.setTextColor(0x07E0); // Verde
+        tft.print("[W]");
+    } else {
+        tft.setTextColor(0xF800); // Vermelho
+        tft.print("[X]");
+    }
     tft.drawLine(0, 25, 128, 25, COLOR_TITLE);
 
     if (selectedItem < scrollOffset) {
@@ -54,6 +65,13 @@ void menu_setup() {
 }
 
 void menu_loop() {
+    static NetworkStatus lastNetStatus = NET_DISCONNECTED;
+    NetworkStatus currentNetStatus = net_status();
+    if (currentNetStatus != lastNetStatus) {
+        lastNetStatus = currentNetStatus;
+        redrawMenu = true;
+    }
+
     if (redrawMenu) {
         drawMenu();
         redrawMenu = false;
@@ -86,6 +104,8 @@ void menu_loop() {
         } else if (selectedItem == 4) {
             currentState = STATE_JAMMER;
         } else if (selectedItem == 5) {
+            currentState = STATE_WIFI_CONFIG;
+        } else if (selectedItem == 6) {
             currentState = STATE_SOBRE;
         }
     }

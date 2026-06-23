@@ -6,6 +6,9 @@
 #include "transmit_rf.h"
 #include "jammer_rf.h"
 #include "sobre.h"
+#include "wifi_config.h"
+#include "network.h"
+#include <ESP8266WiFi.h>
 
 SystemState lastState = STATE_MENU;
 
@@ -24,10 +27,10 @@ void setup() {
     pinMode(BTN_UP, INPUT_PULLDOWN_16);
     pinMode(BTN_DOWN, INPUT_PULLUP);
     pinMode(BTN_OK, INPUT_PULLUP);
-    // BTN_BACK (A0) não precisa de pinMode para analogRead
 
     // Inicializa Display
     tft.initR(INITR_144GREENTAB);
+
     showSplashScreen();
 
     // Inicia CC1101
@@ -54,7 +57,8 @@ void setup() {
         while(1) yield();
     }
 
-    mySwitch.enableReceive(digitalPinToInterrupt(CC1101_GDO0));
+    // Tenta conectar ao WiFi com credenciais salvas (nao bloqueia o boot se falhar)
+    net_init();
 
     // Força setup inicial
     menu_setup();
@@ -65,6 +69,22 @@ void setup() {
 void loop() {
     // Gerenciador de Transição de Estado
     if (currentState != lastState) {
+        // Desativa o WiFi antes de iniciar qualquer operação de RF
+        if (currentState == STATE_SCAN_RF || currentState == STATE_RAW_RF ||
+            currentState == STATE_ANALYZE_RF || currentState == STATE_TRANSMIT ||
+            currentState == STATE_JAMMER) {
+            net_stop();
+        }
+
+        // Reativa o WiFi ao voltar para telas não-RF (menu, config ou sobre)
+        if (currentState == STATE_MENU || currentState == STATE_WIFI_CONFIG || currentState == STATE_SOBRE) {
+            if (lastState == STATE_SCAN_RF || lastState == STATE_RAW_RF ||
+                lastState == STATE_ANALYZE_RF || lastState == STATE_TRANSMIT ||
+                lastState == STATE_JAMMER) {
+                net_init();
+            }
+        }
+
         if (currentState == STATE_MENU) {
             menu_setup();
         } else if (currentState == STATE_SCAN_RF) {
@@ -79,6 +99,8 @@ void loop() {
             jammer_rf_setup();
         } else if (currentState == STATE_SOBRE) {
             sobre_setup();
+        } else if (currentState == STATE_WIFI_CONFIG) {
+            wifi_config_setup();
         }
         lastState = currentState;
     }
@@ -98,5 +120,7 @@ void loop() {
         jammer_rf_loop();
     } else if (currentState == STATE_SOBRE) {
         sobre_loop();
+    } else if (currentState == STATE_WIFI_CONFIG) {
+        wifi_config_loop();
     }
 }
