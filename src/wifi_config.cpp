@@ -63,13 +63,18 @@ static void startAPMode() {
     digitalWrite(CC1101_CS, HIGH);
     delay(100);
 
-    // 3) Configura e inicia o rádio WiFi AP (sem desligar SPI)
+    // 3) Reseta o rádio WiFi completamente antes de iniciar o AP
+    WiFi.disconnect(true);
+    WiFi.softAPdisconnect(true);
+    WiFi.mode(WIFI_OFF);
+    delay(500); // Aguarda a pilha limpar
+
     WiFi.persistent(false);
     WiFi.setAutoConnect(false);
     WiFi.setAutoReconnect(false);
     
     WiFi.mode(WIFI_AP);
-    delay(100);
+    delay(200);
     
     WiFi.setSleepMode(WIFI_NONE_SLEEP);
     WiFi.setOutputPower(20.5);
@@ -137,7 +142,16 @@ static void stopAPMode() {
     WiFi.mode(WIFI_STA);
     WiFi.softAPdisconnect(false);
 
+    // Restaura o CC1101 do sleep com reconfiguração completa dos pinos SPI
+    ELECHOUSE_cc1101.setSpiPin(14, 12, 13, CC1101_CS);
+    ELECHOUSE_cc1101.Init();
+    ELECHOUSE_cc1101.setCCMode(1);
+    ELECHOUSE_cc1101.setModulation(2);
+
     apModeActive = false;
+
+    // Reinicia a conexão STA de WiFi em background
+    net_init();
 }
 
 static void drawConfirmClearUI() {
@@ -193,6 +207,14 @@ static void drawWifiUI() {
         tft.print(net_ip());
         tft.setCursor(5, 54);
         tft.print(net_get_ssid());
+    } else if (ns == NET_CONNECTING) {
+        tft.setTextColor(0xFFE0); // Amarelo
+        tft.print("Conectando...");
+        tft.setCursor(5, 40);
+        tft.setTextColor(COLOR_TEXT);
+        tft.print(net_get_ssid());
+        tft.setCursor(5, 54);
+        tft.print("Aguarde...");
     } else if (apModeActive) {
         tft.setTextColor(0xFFE0);
         tft.print("Modo Config AP");
@@ -241,6 +263,14 @@ void wifi_config_setup() {
 }
 
 void wifi_config_loop() {
+    // Atualiza a tela automaticamente se o status de rede mudar
+    static NetworkStatus lastNetStatus = NET_DISCONNECTED;
+    NetworkStatus currentNetStatus = net_status();
+    if (currentNetStatus != lastNetStatus) {
+        lastNetStatus = currentNetStatus;
+        redrawWifi = true;
+    }
+
     if (isConfirmingClear) {
         if (redrawWifi) {
             drawConfirmClearUI();

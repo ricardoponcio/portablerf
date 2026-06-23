@@ -65,6 +65,13 @@ void menu_setup() {
 }
 
 void menu_loop() {
+    static NetworkStatus lastNetStatus = NET_DISCONNECTED;
+    NetworkStatus currentNetStatus = net_status();
+    if (currentNetStatus != lastNetStatus) {
+        lastNetStatus = currentNetStatus;
+        redrawMenu = true;
+    }
+
     if (redrawMenu) {
         drawMenu();
         redrawMenu = false;

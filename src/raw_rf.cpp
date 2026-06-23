@@ -12,9 +12,6 @@ static bool isListening = false;
 static SavedSignal localCapture;
 
 volatile unsigned int irqDurations[MAX_RAW_BUFFER];
-volatile int irqCount = 0;
-volatile unsigned long irqLastMicros = 0;
-volatile bool irqCapturing = false;
 
 void ICACHE_RAM_ATTR rawInterruptHandler() {
     if (!irqCapturing) return;

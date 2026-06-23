@@ -32,6 +32,7 @@ static String _ssid = "";
 static String _password = "";
 static String _apiUrl = "";
 static String _apiToken = "";
+static unsigned long _connectStartTime = 0;
 
 // --- Helpers de EEPROM ---
 static void eeprom_write_string(int addr, const char* str, int maxLen) {
@@ -119,11 +120,10 @@ void net_clear_credentials() {
 }
 
 void net_init() {
-    // Apenas configura flags — não mexe no modo WiFi
-    // O SDK cuida do modo automaticamente com WiFi.begin() ou WiFi.softAP()
+    // Configura o rádio para modo STA estável
     WiFi.persistent(false);
     WiFi.setAutoConnect(false);
-    WiFi.setAutoReconnect(false);
+    WiFi.setAutoReconnect(true); // Deixa o SDK reconectar em background se cair
 
     if (!net_load_credentials()) {
         _status = NET_DISCONNECTED;
@@ -135,17 +135,11 @@ void net_init() {
         return;
     }
     
+    // Inicia a conexão de forma assíncrona (não-bloqueante)
     _status = NET_CONNECTING;
+    _connectStartTime = millis();
+    WiFi.mode(WIFI_STA);
     WiFi.begin(_ssid.c_str(), _password.c_str());
-    
-    // Tentativa não-bloqueante: aguarda no máximo 10 segundos
-    unsigned long start = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
-        delay(200);
-        yield();
-    }
-    
-    _status = (WiFi.status() == WL_CONNECTED) ? NET_CONNECTED : NET_DISCONNECTED;
 }
 
 void net_disconnect() {
@@ -155,10 +149,28 @@ void net_disconnect() {
     _status = NET_DISCONNECTED;
 }
 
+void net_stop() {
+    WiFi.disconnect(false);
+    WiFi.mode(WIFI_OFF);
+    _status = NET_DISCONNECTED;
+}
+
 NetworkStatus net_status() {
-    // Atualiza status real em tempo de execução
-    if (_status == NET_CONNECTED && WiFi.status() != WL_CONNECTED) {
-        _status = NET_DISCONNECTED;
+    wl_status_t ws = WiFi.status();
+    if (ws == WL_CONNECTED) {
+        _status = NET_CONNECTED;
+    } else {
+        // Se estiver no status interno de conectando, checa o timeout de 15 segundos
+        if (_status == NET_CONNECTING) {
+            if (millis() - _connectStartTime > 15000) {
+                // Timeout estourado, cancela a tentativa ativa
+                WiFi.disconnect(false);
+                _status = NET_DISCONNECTED;
+            }
+        } else if (_status == NET_CONNECTED) {
+            // Se estava conectado e caiu
+            _status = NET_DISCONNECTED;
+        }
     }
     return _status;
 }

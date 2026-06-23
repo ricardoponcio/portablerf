@@ -69,6 +69,22 @@ void setup() {
 void loop() {
     // Gerenciador de Transição de Estado
     if (currentState != lastState) {
+        // Desativa o WiFi antes de iniciar qualquer operação de RF
+        if (currentState == STATE_SCAN_RF || currentState == STATE_RAW_RF ||
+            currentState == STATE_ANALYZE_RF || currentState == STATE_TRANSMIT ||
+            currentState == STATE_JAMMER) {
+            net_stop();
+        }
+
+        // Reativa o WiFi ao voltar para telas não-RF (menu, config ou sobre)
+        if (currentState == STATE_MENU || currentState == STATE_WIFI_CONFIG || currentState == STATE_SOBRE) {
+            if (lastState == STATE_SCAN_RF || lastState == STATE_RAW_RF ||
+                lastState == STATE_ANALYZE_RF || lastState == STATE_TRANSMIT ||
+                lastState == STATE_JAMMER) {
+                net_init();
+            }
+        }
+
         if (currentState == STATE_MENU) {
             menu_setup();
         } else if (currentState == STATE_SCAN_RF) {

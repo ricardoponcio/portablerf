@@ -16,6 +16,7 @@ enum NetworkStatus {
 // Funções de ciclo de vida da rede (independentes do rádio)
 void net_init();                            // Carrega credenciais salvas e tenta conectar
 void net_disconnect();                      // Desconecta e libera recursos WiFi
+void net_stop();                            // Desliga o WiFi completamente (WIFI_OFF) para evitar interferência RF
 
 // Funções de status (sem bloquear o loop principal)
 NetworkStatus net_status();
