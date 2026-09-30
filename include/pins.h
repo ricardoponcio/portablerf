@@ -24,3 +24,7 @@
 #define LORA_DIO1   13
 #define LORA_BUSY   27
 // DIO2 do módulo normalmente fica sem uso (controle interno de RF switch)
+
+// --- LED onboard (D2) ---
+// Atenção: é o mesmo GPIO do TFT_DC acima; quando a tela entrar, um dos dois muda.
+#define LED_PIN     2
