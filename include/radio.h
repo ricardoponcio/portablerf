@@ -7,6 +7,7 @@ constexpr int RADIO_OK             = 0;
 constexpr int RADIO_ERR_NOT_FOUND  = -2;     // mesmo valor de RADIOLIB_ERR_CHIP_NOT_FOUND
 constexpr int RADIO_ERR_NOT_READY  = -1000;  // ainda inicializando
 constexpr int RADIO_ERR_BUS_BUSY   = -1001;  // SPI ocupado pelo outro rádio
+constexpr int RADIO_ERR_BAD_PARAM  = -1002;  // valor fora do suportado
 
 enum class RadioId : uint8_t { CC1101, LoRa };
 
@@ -17,6 +18,10 @@ public:
 
     virtual RadioId id() const = 0;
     virtual const char* name() const = 0;  // identificador usado na API web ("cc1101", "lora")
+
+    virtual float frequencyMhz() const = 0;
+    // Troca a frequência em tempo de execução. Rádios que não suportam devolvem RADIO_ERR_BAD_PARAM.
+    virtual int setFrequencyMhz(float mhz) { (void)mhz; return RADIO_ERR_BAD_PARAM; }
 
     virtual bool initPending() const = 0;
     virtual int initState() const = 0;      // RADIO_OK ou código de erro

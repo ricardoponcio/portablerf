@@ -3,21 +3,27 @@
 #include "pins.h"
 #include "spi_bus.h"
 #include "event_log.h"
+#include "sniffer.h"
 #include "cc1101_radio.h"
 #include "lora_radio.h"
 #include "auto_ping.h"
 #include "wifi_station.h"
 #include "web_ui.h"
+#include "meshtastic.h"
 #include "status_led.h"
 
 EventLog eventLog;
-Cc1101Radio cc1101(eventLog, CC1101_FREQ_MHZ);
-LoRaRadio lora(eventLog, LORA_FREQ_MHZ, LORA_TCXO_V);
+Sniffer cc1101Sniff;
+Sniffer loraSniff;
+Cc1101Radio cc1101(eventLog, cc1101Sniff, CC1101_FREQ_MHZ);
+LoRaRadio lora(eventLog, loraSniff, {LORA_FREQ_MHZ, LORA_BW_KHZ, LORA_SF, LORA_CR, LORA_SYNC_WORD, LORA_PREAMBLE},
+               LORA_TCXO_V);
 AutoPing cc1101Ping(cc1101);
 AutoPing loraPing(lora);
 
 WifiStation wifi(WIFI_SSID, WIFI_PASSWORD);
-WebUi web(eventLog, {cc1101, cc1101Ping}, {lora, loraPing});
+MeshDecoder mesh;
+WebUi web(eventLog, {cc1101, cc1101Ping, cc1101Sniff}, {lora, loraPing, loraSniff}, lora, mesh);
 StatusLed led(LED_PIN, LED_BLINK_MS);
 
 void setup() {

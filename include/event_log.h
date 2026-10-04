@@ -3,6 +3,10 @@
 #include "config.h"
 #include "radio.h"
 
+// Protocolo presumido do pacote, pela sync word em uso no rádio: a página usa
+// para decodificar o cabeçalho (o payload em si costuma ser criptografado).
+enum class PacketProto : uint8_t { None, LoRaWAN, Meshtastic };
+
 struct RadioEvent {
     uint32_t id;
     uint32_t ms;       // millis() do evento
@@ -11,7 +15,9 @@ struct RadioEvent {
     bool ok;           // TX: enviou; RX: CRC ok
     int rssi;          // só RX
     float snr;         // só RX do LoRa
-    char msg[MAX_MSG_LEN + 1];
+    PacketProto proto;
+    uint8_t len;
+    uint8_t data[EVENT_MAX_BYTES];  // bytes crus, como vieram do ar
 };
 
 // Buffer circular com os últimos pacotes enviados/recebidos. Os ids são
@@ -19,7 +25,8 @@ struct RadioEvent {
 // Não é thread-safe: usar só a partir do loop().
 class EventLog {
 public:
-    void add(RadioId radio, bool tx, bool ok, const uint8_t* data, size_t len, int rssi = 0, float snr = 0);
+    void add(RadioId radio, bool tx, bool ok, const uint8_t* data, size_t len, int rssi = 0, float snr = 0,
+             PacketProto proto = PacketProto::None);
 
     // Faixa de ids disponíveis: [firstId(), nextId())
     uint32_t firstId() const;
