@@ -21,7 +21,7 @@ LoRaRadio lora(eventLog, loraSniff, {LORA_FREQ_MHZ, LORA_BW_KHZ, LORA_SF, LORA_C
 AutoPing cc1101Ping(cc1101);
 AutoPing loraPing(lora);
 
-WifiStation wifi(WIFI_SSID, WIFI_PASSWORD);
+WifiStation wifi(WIFI_NETWORKS);
 MeshDecoder mesh;
 WebUi web(eventLog, {cc1101, cc1101Ping, cc1101Sniff}, {lora, loraPing, loraSniff}, lora, mesh);
 StatusLed led(LED_PIN, LED_BLINK_MS);

@@ -1,12 +1,20 @@
 #pragma once
+#include "wifi_station.h"
 
 // --- Wi-Fi ---
-#define WIFI_SSID       "4Work"
-#define WIFI_PASSWORD   "delorean_1058"
-// Às vezes o primeiro WiFi.begin() após gravar/ligar fica preso sem conectar:
-// desiste da tentativa após o timeout e recomeça; esgotadas as tentativas, reinicia a placa.
+// Redes conhecidas. A cada rodada faz um scan e tenta as que estão no ar, da mais forte
+// para a mais fraca; se o scan não achar nenhuma (ex.: rede oculta), tenta todas na ordem.
+static const WifiCredential WIFI_NETWORKS[] = {
+    {"A54 de Ricardo", "delorean_1058"},
+    {"4Work", "delorean_1058"},
+    // {"OutraRede", "senha"},
+};
+// Se a placa reinicia enquanto estava conectada, o roteador ainda acha que a sessão antiga
+// existe e recusa a nova (motivo 202, AUTH_FAIL) até ficar ~15 s sem tentativas; insistir
+// antes disso reinicia a contagem dele. Então: uma tentativa por rede com este timeout,
+// depois a próxima; esgotadas as rodadas, reinicia a placa.
 #define WIFI_CONNECT_TIMEOUT_MS 15000
-#define WIFI_CONNECT_ATTEMPTS   4
+#define WIFI_CONNECT_ATTEMPTS   4   // rodadas pela lista inteira
 
 // --- Rádios ---
 #define CC1101_FREQ_MHZ 433.92
